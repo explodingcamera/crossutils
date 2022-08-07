@@ -1,5 +1,8 @@
 #![feature(rustc_private)]
+mod cvt;
 pub mod fs;
+pub mod spawn;
+pub mod stats;
 
 pub fn version(package: &str, version: &str, authors: &[&str]) -> String {
     format!(

@@ -29,9 +29,9 @@ fn main() -> Result<()> {
         let file = file?;
         let name = file.file_name();
         let name = name.to_string_lossy();
-        // let name = name.to_str()?;
+        let metadata = file.metadata()?;
 
-        print!("{} ", name.bold());
+        print!("{} {:#?}", name.bold(), metadata);
     }
     println!();
 

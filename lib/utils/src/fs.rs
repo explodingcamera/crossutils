@@ -1,15 +1,82 @@
-use libc::{c_int, dirent};
+/**
+ * modified versions of parts of std::fs::* for use with cosmopolitan libc
+ */
+use libc::{c_int, dirent, stat};
 use std::{
     ffi::{CStr, CString, OsStr, OsString},
-    fmt, io,
+    fmt::{self, Debug},
+    io,
     os::unix::prelude::OsStrExt,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
+use crate::cvt::cvt;
+
+#[derive(Clone)]
+pub struct FileAttr {
+    stat: libc::stat,
+}
+
+impl Debug for FileAttr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FileAttr")
+            .field("st_atime", &self.stat.st_atime)
+            .field("st_atime_nsec", &self.stat.st_atime_nsec)
+            .field("st_blksize", &self.stat.st_blksize)
+            .field("st_blocks", &self.stat.st_blocks)
+            .field("st_ctime", &self.stat.st_ctime)
+            .field("st_ctime_nsec", &self.stat.st_ctime_nsec)
+            .field("st_dev", &self.stat.st_dev)
+            .field("st_gid", &self.stat.st_gid)
+            .field("st_ino", &self.stat.st_ino)
+            .field("st_mode", &self.stat.st_mode)
+            .field("st_mtime", &self.stat.st_mtime)
+            .field("st_mtime_nsec", &self.stat.st_mtime_nsec)
+            .field("st_nlink", &self.stat.st_nlink)
+            .field("st_rdev", &self.stat.st_rdev)
+            .field("st_size", &self.stat.st_size)
+            .field("st_uid", &self.stat.st_uid)
+            .finish()
+    }
+}
+
+impl FileAttr {
+    fn from_stat(stat: stat) -> Self {
+        Self { stat }
+    }
+
+    pub fn file_type(&self) -> FileType {
+        FileType {
+            mode: self.stat.st_mode as libc::mode_t,
+        }
+    }
+}
+
 struct dirent_min {
     d_ino: u64,
     d_type: u8,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+pub struct FileType {
+    mode: libc::mode_t,
+}
+
+impl FileType {
+    pub fn is_dir(&self) -> bool {
+        self.is(libc::S_IFDIR)
+    }
+    pub fn is_file(&self) -> bool {
+        self.is(libc::S_IFREG)
+    }
+    pub fn is_symlink(&self) -> bool {
+        self.is(libc::S_IFLNK)
+    }
+
+    pub fn is(&self, mode: libc::mode_t) -> bool {
+        self.mode & libc::S_IFMT == mode
+    }
 }
 
 pub struct DirEntry {
@@ -33,6 +100,46 @@ impl DirEntry {
     pub fn file_name(&self) -> OsString {
         self.file_name_os_str().to_os_string()
     }
+
+    fn name_cstr(&self) -> &CStr {
+        &self.name
+    }
+
+    pub fn metadata(&self) -> io::Result<FileAttr> {
+        let fd = cvt(unsafe { libc::dirfd(self.dir.dirp.0) })?;
+        let name = self.name_cstr().as_ptr();
+
+        let mut stat: libc::stat = unsafe { std::mem::zeroed() };
+        cvt(unsafe { libc::fstatat(fd, name, &mut stat, libc::AT_SYMLINK_NOFOLLOW) })?;
+        Ok(FileAttr::from_stat(stat))
+    }
+
+    pub fn file_type(&self) -> io::Result<FileType> {
+        match self.entry.d_type {
+            libc::DT_CHR => Ok(FileType {
+                mode: libc::S_IFCHR,
+            }),
+            libc::DT_FIFO => Ok(FileType {
+                mode: libc::S_IFIFO,
+            }),
+            libc::DT_LNK => Ok(FileType {
+                mode: libc::S_IFLNK,
+            }),
+            libc::DT_REG => Ok(FileType {
+                mode: libc::S_IFREG,
+            }),
+            libc::DT_SOCK => Ok(FileType {
+                mode: libc::S_IFSOCK,
+            }),
+            libc::DT_DIR => Ok(FileType {
+                mode: libc::S_IFDIR,
+            }),
+            libc::DT_BLK => Ok(FileType {
+                mode: libc::S_IFBLK,
+            }),
+            _ => self.metadata().map(|m| m.file_type()),
+        }
+    }
 }
 
 struct Dir(*mut libc::DIR);
@@ -44,14 +151,6 @@ struct InnerReadDir {
 
 pub struct ReadDir {
     inner: Arc<InnerReadDir>,
-    #[cfg(not(any(
-        target_os = "android",
-        target_os = "linux",
-        target_os = "solaris",
-        target_os = "illumos",
-        target_os = "fuchsia",
-        target_os = "redox",
-    )))]
     end_of_stream: bool,
 }
 
@@ -66,14 +165,6 @@ impl fmt::Debug for ReadDir {
 impl Iterator for ReadDir {
     type Item = io::Result<DirEntry>;
 
-    #[cfg(any(
-        target_os = "android",
-        target_os = "linux",
-        target_os = "solaris",
-        target_os = "fuchsia",
-        target_os = "redox",
-        target_os = "illumos"
-    ))]
     fn next(&mut self) -> Option<io::Result<DirEntry>> {
         use libc::readdir;
 
@@ -161,6 +252,7 @@ pub fn readdir(p: &Path) -> io::Result<ReadDir> {
             };
             Ok(ReadDir {
                 inner: Arc::new(inner),
+                end_of_stream: false,
             })
         }
     }

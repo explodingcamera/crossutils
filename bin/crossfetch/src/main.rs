@@ -1,8 +1,8 @@
-use std::env;
+use std::{env, process::Stdio};
 
 use anyhow::Result;
 use argh::FromArgs;
-use utils::version;
+use utils::{stats::get_os, version};
 
 #[derive(FromArgs)]
 /// A simple fetch command
@@ -25,6 +25,9 @@ fn main() -> Result<()> {
         );
         return Ok(());
     }
+
+    println!("{}", get_os());
+    println!("{}", get_os());
 
     Ok(())
 }
