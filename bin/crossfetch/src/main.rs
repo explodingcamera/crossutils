@@ -2,7 +2,7 @@ use std::{env, process::Stdio};
 
 use anyhow::Result;
 use argh::FromArgs;
-use utils::{stats::get_os, version};
+use utils::{stats::System, version};
 
 #[derive(FromArgs)]
 /// A simple fetch command
@@ -26,8 +26,10 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    println!("{}", get_os());
-    println!("{}", get_os());
+    let system = System::new();
+
+    println!("{:?}", system);
+    println!("{:?}", system.os_release());
 
     Ok(())
 }

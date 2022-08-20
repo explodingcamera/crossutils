@@ -1,70 +1,163 @@
 use std::{
-    ffi::CString,
+    collections::{BTreeMap, HashMap},
     fmt::{Display, Formatter},
-    io,
-    process::Command,
+    path::Path,
 };
 
-use crate::{
-    cvt::cvt,
-    spawn::{self, posix_spawn, CStringArray, ChildPipes},
-};
+use rustix::path::Arg;
 
-pub fn get_hostname() -> io::Result<String> {
-    let size = 255;
-    let mut buffer = vec![0u8; size];
-    cvt(unsafe { libc::gethostname(buffer.as_mut_ptr() as *mut libc::c_char, size) })?;
-    Ok(String::from_utf8_lossy(&buffer).to_string())
+#[derive(Debug)]
+pub enum Kernel {
+    NT,
+    Linux,
+    Darwin,
+    NetBSD,
+    OpenBSD,
+    FreeBSD,
+    Unknown,
 }
 
 #[derive(Debug)]
 pub enum OS {
+    // Linux
+    EndeavourOS,
+    Arch,
+    Artix,
+    Ubuntu,
+    LinuxGeneric,
+
+    // BSD
+    NetBSD,
+    OpenBSD,
+    FreeBSD,
+
+    // Windows
     Windows,
-    Linux,
-    Darwin,
-    BSD,
-    Unknown,
+}
+
+impl Display for Kernel {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl Display for OS {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "{:?}", self)
-        // or, alternatively:
-        // fmt::Debug::fmt(self, f)
     }
 }
 
-pub fn get_os() -> OS {
-    let mut pipes = ChildPipes {
-        stderr: (),
-        stdout: (),
-        stdin: (),
-    };
+#[derive(Debug)]
+pub struct OSRelase {
+    pub os: Option<OS>,
+    pub id: Option<String>,
+    pub id_like: Option<String>,
+    pub name: Option<String>,
+    pub name_pretty: Option<String>,
+    pub build: Option<String>,
+    pub logo: Option<String>,
+}
 
-    let mut envp = CStringArray::with_capacity(10);
-    envp.push(CString::new("uname").unwrap());
+#[derive(Debug)]
+pub struct System {
+    pub kernel: Kernel,
+    pub kernel_version: String,
+    pub hostname: String,
+}
 
-    let uname = Command::new("false").output().unwrap();
-    println!("{:?}", uname);
+impl Default for System {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
-    let uname = Command::new("echo").arg("lol").output().unwrap();
-    println!("{:?}", uname);
+impl System {
+    pub fn new() -> Self {
+        let x = rustix::process::uname();
+        let kernel_version = x.version().to_owned().into_string().unwrap();
+        let hostname = x.nodename().to_owned().into_string().unwrap();
 
-    // let _ = posix_spawn(&pipes, Some(&envp)).unwrap();
-    let uname = Command::new("/sbin/uname").arg("-s").output();
-    println!("{:?}", uname);
+        // let root = statfs(std::path::Path::new("/")).unwrap();
+        // println!("{:?}", root);
 
-    let uname = match uname {
-        Ok(uname) => String::from_utf8_lossy(&uname.stdout).to_string(),
-        Err(_) => return OS::Windows,
-    };
+        let sysname = x.sysname().to_str().unwrap();
+        let kernel = match sysname {
+            "Linux" => Kernel::Linux,
+            _ if { sysname.starts_with("GNU") } => Kernel::Linux,
+            "XNU's Not UNIX!" => Kernel::Darwin,
+            "FreeBSD" => Kernel::FreeBSD,
+            "NetBSD" => Kernel::NetBSD,
+            "OpenBSD" => Kernel::OpenBSD,
+            "The New Technology" => Kernel::NT,
+            _ => Kernel::Unknown,
+        };
 
-    match uname.as_str() {
-        "Linux" => OS::Linux,
-        _ if { uname.starts_with("GNU") } => OS::Linux,
-        "Darwin" => OS::Darwin,
-        "DragonFly" => OS::BSD,
-        _ if { uname.ends_with("BSD") } => OS::BSD,
-        _ => OS::Unknown,
+        System {
+            kernel,
+            hostname,
+            kernel_version,
+        }
+    }
+
+    pub fn os_release(&self) -> OSRelase {
+        match self.kernel {
+            Kernel::Linux => {
+                let mut release = OSRelase {
+                    build: None,
+                    id: None,
+                    id_like: None,
+                    name: None,
+                    name_pretty: None,
+                    logo: None,
+                    os: Some(OS::LinuxGeneric),
+                };
+
+                if let Ok(contents) = crate::fs::readfile(Path::new("/etc/os-release")) {
+                    let mut data: BTreeMap<String, String> = BTreeMap::new();
+                    let text = contents
+                        .to_string_lossy()
+                        .trim_matches(char::from(0))
+                        .to_string();
+
+                    for line in text.lines() {
+                        let mut parts = line.split('=');
+                        if let Some(key) = parts.next() {
+                            if let Some(value) = parts.next() {
+                                data.insert(key.to_string(), value.to_string());
+                            }
+                        }
+                    }
+
+                    if let Some(id) = data.get("ID") {
+                        release.id = Some(id.to_string());
+                    }
+                    if let Some(id_like) = data.get("ID_LIKE") {
+                        release.id_like = Some(id_like.to_string());
+                    }
+                    if let Some(name) = data.get("NAME") {
+                        release.name = Some(name.to_string());
+                    }
+                    if let Some(name_pretty) = data.get("PRETTY_NAME") {
+                        release.name_pretty = Some(name_pretty.to_string());
+                    }
+                    if let Some(build) = data.get("BUILD_ID") {
+                        release.build = Some(build.to_string());
+                    }
+                    if let Some(logo) = data.get("LOGO") {
+                        release.logo = Some(logo.to_string());
+                    }
+                }
+                release
+            }
+            _ => OSRelase {
+                build: None,
+                id: None,
+                id_like: None,
+                name: None,
+                name_pretty: None,
+                logo: None,
+                os: None,
+            },
+        }
     }
 }

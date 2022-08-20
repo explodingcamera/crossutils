@@ -4,6 +4,8 @@ pub mod fs;
 pub mod spawn;
 pub mod stats;
 
+pub use rustix;
+
 pub fn version(package: &str, version: &str, authors: &[&str]) -> String {
     format!(
         "{package} (crossutils) version {version}\n\
