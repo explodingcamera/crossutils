@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, path::Path};
 
 use anyhow::Result;
 use argh::FromArgs;
@@ -31,9 +31,10 @@ fn main() -> Result<()> {
         let name = name.to_string_lossy();
         let metadata = file.metadata()?;
 
-        print!("{} {:#?}", name.bold(), metadata);
+        print!("{}  {:#?}", name.bold(), metadata);
     }
-    println!();
+    let x = utils::process::exec("ls");
+    println!("{x}");
 
     Ok(())
 }

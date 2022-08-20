@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use rustix::path::Arg;
+use rustix::{path::Arg, process::Resource};
 
 #[derive(Debug)]
 pub enum Kernel {
@@ -76,6 +76,7 @@ impl System {
         let x = rustix::process::uname();
         let kernel_version = x.version().to_owned().into_string().unwrap();
         let hostname = x.nodename().to_owned().into_string().unwrap();
+        let uid = rustix::process::getuid();
 
         // let root = statfs(std::path::Path::new("/")).unwrap();
         // println!("{:?}", root);

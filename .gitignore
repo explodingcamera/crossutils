@@ -2,3 +2,4 @@
 /libcosmo/*
 !/libcosmo/.gitkeep
 !/libcosmo/stubs.c
+*.tar.gz

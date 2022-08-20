@@ -4,4 +4,4 @@
 
 ## Credits
 
-[rust-ape](https://github.com/ahgamut/rust-ape-example) for the `cosmopolitan libc` build setup.
+[rust-ape](https://github.com/ahgamut/rust-ape-example) for the initial `cosmopolitan libc` build setup.

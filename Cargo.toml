@@ -4,4 +4,5 @@ members = [
   "bin/crossfetch",
   "bin/lsw",
   "lib/utils",
+  "lib/subprocess",
 ]

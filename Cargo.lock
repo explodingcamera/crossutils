@@ -156,6 +156,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "subprocess"
+version = "0.2.10"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -184,6 +191,7 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "rustix",
+ "subprocess",
 ]
 
 [[package]]
