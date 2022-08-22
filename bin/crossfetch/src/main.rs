@@ -1,4 +1,4 @@
-use std::{env, process::Stdio};
+use std::env;
 
 use anyhow::Result;
 use argh::FromArgs;
@@ -28,8 +28,9 @@ fn main() -> Result<()> {
 
     let system = System::new();
 
-    println!("{:?}", system);
-    println!("{:?}", system.os_release());
+    println!("system: {:?}", system);
+    println!("release: {:?}", system.os_release());
+    println!("user: {:?}", system.user());
 
     Ok(())
 }

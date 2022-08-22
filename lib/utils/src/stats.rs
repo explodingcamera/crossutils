@@ -1,10 +1,10 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     fmt::{Display, Formatter},
     path::Path,
 };
 
-use rustix::{path::Arg, process::Resource};
+use rustix::{path::Arg, process::Uid};
 
 #[derive(Debug)]
 pub enum Kernel {
@@ -59,6 +59,14 @@ pub struct OSRelase {
 }
 
 #[derive(Debug)]
+pub struct User {
+    pub uid: Uid,
+}
+
+#[derive(Debug)]
+pub struct Fs {}
+
+#[derive(Debug)]
 pub struct System {
     pub kernel: Kernel,
     pub kernel_version: String,
@@ -76,10 +84,6 @@ impl System {
         let x = rustix::process::uname();
         let kernel_version = x.version().to_owned().into_string().unwrap();
         let hostname = x.nodename().to_owned().into_string().unwrap();
-        let uid = rustix::process::getuid();
-
-        // let root = statfs(std::path::Path::new("/")).unwrap();
-        // println!("{:?}", root);
 
         let sysname = x.sysname().to_str().unwrap();
         let kernel = match sysname {
@@ -98,6 +102,16 @@ impl System {
             hostname,
             kernel_version,
         }
+    }
+
+    pub fn fs(&self) -> Fs {
+        Fs {}
+    }
+
+    pub fn user(&self) -> User {
+        let uid = rustix::process::getuid();
+
+        User { uid }
     }
 
     pub fn os_release(&self) -> OSRelase {

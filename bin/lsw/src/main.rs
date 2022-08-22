@@ -1,4 +1,4 @@
-use std::{env, path::Path};
+use std::env;
 
 use anyhow::Result;
 use argh::FromArgs;
@@ -38,8 +38,3 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-
-// pub fn read_dir(path: std::path::PathBuf) -> io::Result<nix::dir::Dir> {
-//     let dir = nix::dir::Dir::open(&path, OFlag::O_DIRECTORY, Mode::S_IXUSR)?;
-//     Ok(dir)
-// }

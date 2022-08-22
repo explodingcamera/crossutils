@@ -3,6 +3,7 @@
 members = [
   "bin/crossfetch",
   "bin/lsw",
+  "bin/dog",
   "lib/utils",
   "lib/subprocess",
 ]

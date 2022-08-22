@@ -60,6 +60,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dog"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "argh",
+ "owo-colors",
+ "utils",
+]
+
+[[package]]
 name = "errno"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
